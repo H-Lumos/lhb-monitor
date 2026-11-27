@@ -141,7 +141,9 @@ text-overflow:ellipsis;white-space:nowrap}
   .sr>span:nth-child(3){grid-column:2 !important;text-align:right !important;
     color:var(--up) !important;font-size:12px !important;
     font-variant-numeric:tabular-nums !important;white-space:nowrap !important}
-  .sr>span:nth-child(3)::before{content:'买';color:var(--mut);font-size:10px;
+  .buyc{color:var(--up) !important}
+.sellc{color:var(--dn) !important}
+.sr>span:nth-child(3)::before{content:'买';color:var(--mut);font-size:10px;
     margin-right:3px;font-weight:400}
   .sr>span:nth-child(4){grid-column:3 !important;text-align:right !important;
     color:var(--dn) !important;font-size:12px !important;
@@ -235,14 +237,19 @@ const cs=v=>v>0?'up':(v<0?'dn':'zero');
 const tcls=c=>c==='北向'?'tg-north':c==='机构'?'tg-inst':c==='量化'?'tg-quant':c==='营业部'?'tg-desk':'tg-hot';
 const mk=s=>(MK[s]||s||'').replace('交易市场','');
 const money=v=>(v/1e4).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+const amt=v=>{ if(!v&&v!==0) return '-';
+  const w=Math.abs(v)/1e4, neg=v<0?'-':'';
+  return w>=10000 ? neg+(w/10000).toFixed(2)+'亿'
+                  : neg+w.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',')+'万';
+};
 
 function seats(list){
   if(!list||!list.length) return '<div class="sr"><span class="zero">—</span></div>';
   return list.map(x=>`<div class="sr${x.conf&&x.conf[0]==='C'?' dim':''}">
     <span title="${x.dept}">${x.dept}</span>
     <span><span class="tg ${tcls(x.cat)}">${x.tag==='T王'?'T王':x.cat+'·'+(x.tag||'')}</span>${x.conf?'<span class="cf '+(x.conf[0]==='A'?'a':x.conf[0]==='B'?'b':'c')+'">'+x.conf[0]+'</span>':''}</span>
-    <span class="${x.buy>0?'':'zero'}">${(x.buy/1e4).toFixed(0)}</span>
-    <span class="${x.sell>0?'':'zero'}">${(x.sell/1e4).toFixed(0)}</span></div>`).join('');
+    <span class="${x.buy>0?'buyc':'zero'}">${amt(x.buy)}</span>
+    <span class="${x.sell>0?'sellc':'zero'}">${amt(x.sell)}</span></div>`).join('');
 }
 function detail(r){
   const q = `<div class="quote" style="border-bottom:1px solid rgba(255,255,255,.05);
@@ -255,10 +262,10 @@ function detail(r){
     <span>T王净买 <b class="${(r.tw||0)>0?'up':'dn'}">${((r.tw||0)<0?'-':'')+Math.abs((r.tw||0)/1e8).toFixed(2)}亿</b></span>
   </div>`;
   return q + r.reasons.map(z=>`<div class="reason">
-    <div class="rtitle">上榜原因：${z.explanation}（买${money(z.buy_amt)}万 / 卖${money(z.sell_amt)}万）</div>
+    <div class="rtitle">上榜原因：${z.explanation}<span style="color:#8b93a7">（买 <b style="color:#ff5d6c">${amt(z.buy_amt)}</b> / 卖 <b style="color:#2ecc8f">${amt(z.sell_amt)}</b>）</span></div>
     <div class="rgrid">
-      <div><div class="rhd"><span>买入营业部</span><span>标签</span><span>买入(万)</span><span>卖出(万)</span></div>${seats(z.buy_seats)}</div>
-      <div><div class="rhd"><span>卖出营业部</span><span>标签</span><span>买入(万)</span><span>卖出(万)</span></div>${seats(z.sell_seats)}</div>
+      <div><div class="rhd"><span>买入营业部</span><span>标签</span><span>买入</span><span>卖出</span></div>${seats(z.buy_seats)}</div>
+      <div><div class="rhd"><span>卖出营业部</span><span>标签</span><span>买入</span><span>卖出</span></div>${seats(z.sell_seats)}</div>
     </div></div>`).join('');
 }
 function cards(){
