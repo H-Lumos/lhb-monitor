@@ -142,6 +142,27 @@ text-overflow:ellipsis;white-space:nowrap}
     color:var(--up) !important;font-size:12px !important;
     font-variant-numeric:tabular-nums !important;white-space:nowrap !important}
   .buyc{color:var(--up) !important}
+.tkbox{margin:6px 0 10px;border:1px solid rgba(74,158,255,.25);border-radius:8px;
+background:rgba(74,158,255,.05);overflow:hidden}
+.tkhd{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;
+cursor:pointer;font-size:11.5px;color:#4a9eff;user-select:none}
+.tkhd:hover{background:rgba(74,158,255,.09)}
+.tkmore{font-size:10px;color:#6b7a8f}
+.tkbody{padding:0 0 6px}
+.tkrow{display:grid;grid-template-columns:46px 44px 1fr 1fr 1fr 1.3fr;
+gap:4px;padding:4px 11px;font-size:11px;align-items:center;
+font-variant-numeric:tabular-nums;border-top:1px solid rgba(255,255,255,.035)}
+.tkrow.tkh{color:var(--mut);font-size:10px;border-top:none;padding-bottom:2px}
+.tkd{color:var(--mut)}
+.tkp{color:#c2c9d6;text-align:right}
+.tkb{color:var(--up);text-align:right}
+.tks{color:var(--dn);text-align:right}
+.tkh2{color:#e6e9ef;text-align:right}
+.tkrow>span:nth-child(5){color:#e8b44a;text-align:right;font-weight:600}
+.tkn{color:var(--mut);font-size:10px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tksum{padding:7px 11px 3px;font-size:11px;color:var(--mut);
+border-top:1px solid rgba(255,255,255,.06);margin-top:3px}
+.tksum b{color:#e8b44a}
 .sellc{color:var(--dn) !important}
 .sr>span:nth-child(3)::before{content:'买';color:var(--mut);font-size:10px;
     margin-right:3px;font-weight:400}
@@ -227,6 +248,42 @@ try{FAV=new Set(JSON.parse(localStorage.getItem('lhb_fav')||'[]'));}catch(e){FAV
 
 function saveFav(){try{localStorage.setItem('lhb_fav',JSON.stringify([...FAV]));}catch(e){}}
 function syncFavCnt(){const el=document.getElementById('favcnt');if(el){el.textContent=FAV.size;el.style.display=FAV.size?'inline-block':'none';}}
+let TRACK=null, TRACK_CODE='';
+async function loadTrack(code){
+  if(TRACK_CODE===code) return TRACK;
+  TRACK_CODE=code; TRACK=null;
+  try{
+    const r=await fetch('tracking/'+code+'.json?t='+Date.now(),{cache:'no-store'});
+    if(r.ok) TRACK=await r.json();
+  }catch(e){ TRACK=null; }
+  return TRACK;
+}
+function trackHtml(dept){
+  if(!TRACK||!TRACK[dept]) return '';
+  const segs=TRACK[dept].segments;
+  if(!segs||!segs.length) return '';
+  const sid='tk_'+Math.random().toString(36).slice(2,8);
+  const seg=segs[segs.length-1];
+  let rows='';
+  seg.rows.forEach(r=>{
+    rows+='<div class="tkrow"><span class="tkd">'+r.date.slice(5)+'</span>'
+        + '<span class="tkp">'+r.close.toFixed(2)+'</span>'
+        + '<span class="tkb">'+r.buy+'</span>'
+        + '<span class="tks">'+r.sell+'</span>'
+        + '<span class="tkh">'+r.hold.toFixed(1)+'</span>'
+        + '<span class="tkn">'+(r.note||'')+'</span></div>';
+  });
+  return '<div class="tkbox">'
+    + '<div class="tkhd" onclick="var b=this.nextElementSibling;b.style.display=b.style.display===\'none\'?\'block\':\'none\'">'
+    + '<span>📊 持仓追踪（'+segs.length+'个周期 · 末段 '+seg.start.slice(5)+'~'+seg.end.slice(5)+'）</span>'
+    + '<span class="tkmore">点击展开</span></div>'
+    + '<div class="tkbody" style="display:none">'
+    + '<div class="tkrow tkh"><span>日期</span><span>收盘</span><span>买入万</span><span>卖出万</span><span>持仓万股</span><span>动作</span></div>'
+    + rows
+    + '<div class="tksum">期末 <b>'+seg.final.toFixed(1)+'</b> 万股 · 峰值 <b>'+seg.peak.toFixed(1)+'</b> 万股'
+    + (seg.hist>0?' · 历史底仓 <b>'+seg.hist.toFixed(1)+'</b> 万股':'')
+    + '</div></div></div>';
+}
 function toggleFav(code,ev){
   if(ev){ev.stopPropagation();ev.preventDefault();}
   FAV.has(code)?FAV.delete(code):FAV.add(code);
@@ -249,7 +306,8 @@ function seats(list){
     <span title="${x.dept}">${x.dept}</span>
     <span><span class="tg ${tcls(x.cat)}">${x.tag==='T王'?'T王':x.cat+'·'+(x.tag||'')}</span>${x.conf?'<span class="cf '+(x.conf[0]==='A'?'a':x.conf[0]==='B'?'b':'c')+'">'+x.conf[0]+'</span>':''}</span>
     <span class="${x.buy>0?'buyc':'zero'}">${amt(x.buy)}</span>
-    <span class="${x.sell>0?'sellc':'zero'}">${amt(x.sell)}</span></div>`).join('');
+    <span class="${x.sell>0?'sellc':'zero'}">${amt(x.sell)}</span></div>`
+    + trackHtml(x.dept)).join('');
 }
 function detail(r){
   const q = `<div class="quote" style="border-bottom:1px solid rgba(255,255,255,.05);
@@ -320,9 +378,19 @@ function render(){
   } else {
     document.getElementById('empty').textContent = '没有符合条件的记录';
   }
-  document.querySelectorAll('tr.body').forEach(el=>el.onclick=()=>{
+  document.querySelectorAll('tr.body').forEach(el=>el.onclick=async()=>{
     const d=document.querySelector('tr[data-d="'+el.dataset.i+'"]');
-    d.style.display=d.style.display==='none'?'table-row':'none';});
+    if(d.style.display==='none'){
+      const r=rows[+el.dataset.i];
+      if(r && !d.dataset.loaded){
+        await loadTrack(r.code);
+        d.querySelector('td').innerHTML=detail(r);
+        d.dataset.loaded='1';
+      }
+      d.style.display='table-row';
+    } else {
+      d.style.display='none';
+    }});
 }
 async function load(idx){
   cur=idx;
