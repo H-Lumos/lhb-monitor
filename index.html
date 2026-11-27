@@ -62,9 +62,6 @@ display:inline-block;width:14px;text-align:center;transition:opacity .15s,transf
 .favcnt{display:inline-block;min-width:16px;padding:0 4px;margin-left:5px;border-radius:8px;
 background:rgba(255,93,108,.22);color:#ff5d6c;font-size:10px;font-weight:700;vertical-align:middle}
 .favcnt:empty{display:none}
-#syncBtn{color:#4a9eff;border-color:rgba(74,158,255,.4)}
-#syncBtn:hover{background:rgba(74,158,255,.12)}
-#syncBtn.ok{background:rgba(46,204,143,.18);border-color:rgba(46,204,143,.5);color:#2ecc8f}
 .nm{font-weight:500}.code{color:var(--mut);font-size:11px;margin-left:5px}
 .mkt{color:var(--mut);font-size:12px}
 .why{color:var(--mut);font-size:12px;max-width:330px;overflow:hidden;
@@ -123,7 +120,6 @@ margin-left:3px;vertical-align:middle;line-height:1.6}
   <div class="pill" data-f="hot">游资净买</div>
   <div class="pill" data-f="north">北向净买</div>
   <div class="pill" data-f="fav">我的自选<span class="favcnt" id="favcnt">0</span></div>
-  <div class="pill" id="syncBtn" title="生成同步链接">⇄ 同步到手机</div>
 </div>
 
 <div class="scroll">
@@ -140,37 +136,9 @@ const MK={'上交所主板':'沪主板','深交所主板':'深主板','上交所
 let DATA=[], dates=[], cur=0, filt='all', tab='stock', sk='net', sd=-1, kw='';
 let FAV=new Set();
 try{FAV=new Set(JSON.parse(localStorage.getItem('lhb_fav')||'[]'));}catch(e){FAV=new Set();}
-// 从 URL 参数同步自选（?fav=300604,002148）
-let _imported=0;
-try{
-  const _m=location.search.match(/[?&]fav=([^&]+)/);
-  if(_m){
-    decodeURIComponent(_m[1]).split(',').map(s=>s.trim()).filter(Boolean)
-      .forEach(c=>{ if(!FAV.has(c)){FAV.add(c);_imported++;} });
-    localStorage.setItem('lhb_fav',JSON.stringify([...FAV]));
-    history.replaceState(null,'',location.pathname+location.hash);
-  }
-}catch(e){}
+
 function saveFav(){try{localStorage.setItem('lhb_fav',JSON.stringify([...FAV]));}catch(e){}}
 function syncFavCnt(){const el=document.getElementById('favcnt');if(el){el.textContent=FAV.size;el.style.display=FAV.size?'inline-block':'none';}}
-function shareFav(){
-  if(!FAV.size){ alert('还没有自选，先点标的左侧的 ♡ 收藏几只'); return; }
-  const base=location.origin+location.pathname;
-  const url=base+'?fav='+[...FAV].join(',');
-  const done=()=>{
-    const b=document.getElementById('syncBtn');
-    if(b){ b.textContent='✓ 已复制'; b.classList.add('ok');
-      setTimeout(()=>{b.textContent='⇄ 同步到手机'; b.classList.remove('ok');},2500); }
-  };
-  if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(()=>{
-      done();
-      alert('链接已复制！\n\n发到手机上打开，自选就会自动同步过去。\n\n共 '+FAV.size+' 只：'+[...FAV].join(', '));
-    }).catch(()=>prompt('复制这个链接，在手机浏览器打开即可同步：',url));
-  } else {
-    prompt('复制这个链接，在手机浏览器打开即可同步：',url);
-  }
-}
 function toggleFav(code,ev){
   if(ev){ev.stopPropagation();ev.preventDefault();}
   FAV.has(code)?FAV.delete(code):FAV.add(code);
@@ -299,15 +267,7 @@ async function boot(){
       if(!panel.contains(e.target) && e.target.id!=='dateBtn') panel.classList.remove('show');});
     document.getElementById('prev').onclick=()=>{if(cur<dates.length-1)load(cur+1)};
     document.getElementById('next').onclick=()=>{if(cur>0)load(cur-1)};
-    document.getElementById('syncBtn').onclick=shareFav;
-if(_imported>0){
-  setTimeout(()=>{
-    alert('已从链接同步 '+_imported+' 只自选标的，现在共 '+FAV.size+' 只');
-    const p=document.querySelector('.pill[data-f=\'fav\']');
-    if(p) p.click();
-  },600);
-}
-load(0);
+    load(0);
   }catch(e){
     document.getElementById('meta').textContent='需通过 http 访问才能读取历史数据';
   }
